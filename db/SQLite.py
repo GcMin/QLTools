@@ -1,6 +1,8 @@
 import logging
 import re
 import sqlite3
+import threading
+import sys
 
 
 class DBService:
@@ -9,7 +11,7 @@ class DBService:
         logging.getLogger().setLevel(logging.INFO)
         self._logger = logging.getLogger("DB_logger")
         logging.basicConfig(format=LOG_FORMAT)
-        self._conn = sqlite3.connect('../resources/QLJD.db')
+        self._conn = sqlite3.connect('./resources/QLJD.db', check_same_thread=False)
         self._cur = self._conn.cursor()
         self.init_talbes()
 
@@ -42,7 +44,6 @@ class DBService:
         except Exception as e:
             self._logger.info(f"{str(e)}")
             self._logger.error(e)
-
 
     def update_ql_envs(self, data, qq_num="", wx_num=""):
         value = data['value']

@@ -1,23 +1,28 @@
-import requests
-import logging
-from datetime import datetime
+import configparser
 import json
+import logging
+import threading
+from datetime import datetime
+
+import requests
 
 
 class QLService:
-    def __init__(self, api_url, client_id, client_secret):
-        '''
-        init
-        :param address: QL address
-        :param client_id: QL id
-        :param client_secret: QL secret
-        '''
+    def __init__(self):
         LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
         logging.getLogger().setLevel(logging.INFO)
         self._logger = logging.getLogger("QL")
         logging.basicConfig(format=LOG_FORMAT)
+        self._lock = threading.Lock()
+        # 读取青龙配置
+        path = "./config.properties"
+        config = configparser.ConfigParser()
+        config.read(path)
+        ql_address = config.get('QL', 'ql_url')
+        client_id = config.get('QL', 'client_id')
+        client_secret = config.get('QL', 'client_secret')
 
-        self._url = f"{api_url}/open"  # http://localhost:5700/open
+        self._url = f"{ql_address}/open"  # http://localhost:5700/open
         self._client_id = client_id
         self._client_secret = client_secret
         token = self.get_token()
@@ -94,6 +99,10 @@ class QLService:
             )
         # 更新变量
         else:
+            # 检查id是否还存在
+            data = self.get_envs_list(envs_id=envs_id)["data"]
+            if data is None:
+                return None
             url = f"{self._envs_url}"
             new_envs = json.dumps(
                 {
@@ -119,11 +128,11 @@ class QLService:
     # def get_logs
 
 
-if __name__ == '__main__':
-    r = QLService(api_url="http://192.168.67.245:5700",
-                  client_id="AUiUPsl-DAc3",
-                  client_secret="WtqCtvm06Qudq7x-R7ETPtAJ")
-    r.get_envs_list(86)
+# if __name__ == '__main__':
+    # r = QLService(api_url="http://192.168.67.245:5700",
+    #               client_id="AUiUPsl-DAc3",
+    #               client_secret="WtqCtvm06Qudq7x-R7ETPtAJ")
+    # r.get_envs_list(86)
     # r.add_envs(value="testPython222", name="testName222", remarks="testRemarks", msg="添加变量成功")
     # r.update_envs(envs_id=79, value="testPython222", name="updateN", remarks="testRemarks", msg="更新变量成功")
     # r.delete_envs(envs_id=81, msg="删除变量成功")

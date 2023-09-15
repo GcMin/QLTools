@@ -1,9 +1,14 @@
-import uvicorn
+import configparser
+
 from fastapi import FastAPI
-from tools import app
 
-r = FastAPI()
-r.include_router(app, prefix='/JD', tags=['京东应用'])
+from net import WSConn
 
-if __name__ == '__main__':
-    uvicorn.run('run:r', host='0.0.0.0', port=8000, reload=True)
+import uvicorn
+
+app = FastAPI()
+
+app.include_router(WSConn.router)
+
+if __name__ == "__main__":
+    uvicorn.run('run:app', host='0.0.0.0', port=9996, reload=True)
