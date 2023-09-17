@@ -41,16 +41,20 @@ def cookie_filter(cookie_value):
         cookie_value = cookie_value + ";"
     if cookie_value.__contains__("pt_pin=") and cookie_value.__contains__("pt_key="):
         pt_pin = re.findall(r"pt_pin=.*?;", cookie_value)[0]
+        pt_key = re.findall(r"pt_key=.*?;", cookie_value)[0]
         user_id = pt_pin[7:len(pt_pin) - 1]
         envs_type = "JD_COOKIE"
     elif cookie_value.__contains__("pin=") and cookie_value.__contains__("wskey="):
         pt_pin = re.findall(r"pin=.*?;", cookie_value)[0]
+        pt_key = re.findall(r"pt_key=.*?;", cookie_value)[0]
+
         user_id = pt_pin[4:len(pt_pin) - 1]
         envs_type = "JD_WSCK"
     else:
         logger.info("非cookie信息")
         return None
-    return extract_cookie(envs_type, user_id, cookie_value)
+    cookie_str = pt_pin + pt_key
+    return extract_cookie(envs_type, user_id, cookie_str)
 
 
 def extract_cookie(envs_type, user_id, value):
