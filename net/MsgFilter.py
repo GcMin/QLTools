@@ -2,7 +2,9 @@ import json
 import re
 import logging
 
-from utils.JDBridge import add_cookie
+from utils.JDBridge import JDService
+
+jdService = JDService()
 
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
 logging.getLogger().setLevel(logging.INFO)
@@ -11,6 +13,7 @@ logging.basicConfig(format=LOG_FORMAT)
 
 
 def main_filter(msg_dict):
+    msg = msg_dict["message"]
     msg_type = msg_dict["message_type"]
     if msg_type == "private":
         user_id = msg_dict["user_id"]
@@ -24,45 +27,47 @@ def main_filter(msg_dict):
         msg_id = group_id
         action = "send_group_msg"
         msg_type = "group_id"
-    msg = msg_dict["message"]
-    cookie = cookie_filter(msg)
-    if cookie is not None:
-        cookie_status = add_cookie(cookie, remarks="", qq=user_id)
-        print(cookie_status)
-        if cookie_status is not None:
-            return result_json(action=action, msg_type=msg_type, msg_id=msg_id, msg=cookie_status, echo="")
+
+    if msg == "查询":
+        return_msg = query_filter(user_id)
+    elif (msg.__contains__("pt_pin=") and msg.__contains__("pt_key=")) or (
+            msg.__contains__("pin=") and msg.__contains__("wskey=")):
+        return_msg = cookie_filter(msg, user_id)
+
     # return result_json(status="failed", retcode=1400, data=None, echo=echo)
-    return None
+    result = result_json(action=action, msg_type=msg_type, msg_id=msg_id, msg=return_msg, echo="")
+    return result
 
 
-def cookie_filter(cookie_value):
-    cookie_value = cookie_value.replace(" ", "")
-    if cookie_value[-1] != ";":
-        cookie_value = cookie_value + ";"
-    if cookie_value.__contains__("pt_pin=") and cookie_value.__contains__("pt_key="):
-        pt_pin = re.findall(r"pt_pin=.*?;", cookie_value)[0]
-        pt_key = re.findall(r"pt_key=.*?;", cookie_value)[0]
+def query_filter(user_id):
+    result = jdService.query_asset(qq=user_id)
+    return result
+
+
+def cookie_filter(msg, qq):
+    cookie = msg
+    cookie = cookie.replace(" ", "")
+    if cookie[-1] != ";":
+        cookie = cookie + ";"
+    if cookie.__contains__("pt_pin=") and cookie.__contains__("pt_key="):
+        pt_pin = re.findall(r"pt_pin=.*?;", cookie)[0]
+        pt_key = re.findall(r"pt_key=.*?;", cookie)[0]
         user_id = pt_pin[7:len(pt_pin) - 1]
         envs_type = "JD_COOKIE"
-    elif cookie_value.__contains__("pin=") and cookie_value.__contains__("wskey="):
-        pt_pin = re.findall(r"pin=.*?;", cookie_value)[0]
-        pt_key = re.findall(r"pt_key=.*?;", cookie_value)[0]
-
+    elif cookie.__contains__("pin=") and cookie.__contains__("wskey="):
+        pt_pin = re.findall(r"pin=.*?;", cookie)[0]
+        pt_key = re.findall(r"pt_key=.*?;", cookie)[0]
         user_id = pt_pin[4:len(pt_pin) - 1]
         envs_type = "JD_WSCK"
-    else:
-        logger.info("非cookie信息")
-        return None
+
     cookie_str = pt_pin + pt_key
-    return extract_cookie(envs_type, user_id, cookie_str)
-
-
-def extract_cookie(envs_type, user_id, value):
-    r = list()
-    r.append(envs_type)
-    r.append(user_id)
-    r.append(value)
-    return r
+    cookie_dict = {
+        "envs_type": envs_type,
+        "user_id": user_id,
+        "cookie": cookie_str
+    }
+    cookie_status = jdService.add_cookie(cookie_dict, remarks="", qq=qq)
+    return cookie_status
 
 
 def result_json(action, msg_type, msg_id, msg, echo):

@@ -47,7 +47,7 @@ class QLService:
                     self._logger.info(msg)
                 self._logger.info(f"请求{url}成功")
             else:
-                self._logger.info(f"请求失败:{result_json['message']}")
+                self._logger.info(f"请求{url}失败:{result_json['message']}")
         except Exception as e:
             self._logger.info(f"request 失败{str(e)}")
             self._logger.error(e)
@@ -88,32 +88,32 @@ class QLService:
         self._logger.info(f"添加新cookie成功 {name} {value}")
         return result
 
-    def update_envs(self, envs_id, value, name=None, remarks=None, msg=None, enable=None):
-        # 启动或禁止变量
-        if enable is not None:
-            url = f"{self._envs_url}/{enable}"
-            new_envs = json.dumps(
-                [
-                    envs_id
-                ]
-            )
-        # 更新变量
-        else:
-            # 检查id是否还存在
-            data = self.get_envs_list(envs_id=envs_id)["data"]
-            if data is None:
-                return None
-            url = f"{self._envs_url}"
-            new_envs = json.dumps(
-                {
-                    "value": value,
-                    "name": name,
-                    "remarks": remarks,
-                    "id": envs_id
-                }
-            )
+    def update_envs(self, envs_id, value, envs_type=None, remarks=None, msg=None):
+        # 检查id是否还存在
+        data = self.get_envs_list(envs_id=envs_id)["data"]
+        if data is None:
+            return None
+        url = f"{self._envs_url}"
+        new_envs = json.dumps(
+            {
+                "value": value,
+                "name": envs_type,
+                "remarks": remarks,
+                "id": envs_id
+            }
+        )
         result = self.request_result("PUT", url, self._headers, new_envs, msg)
+        self.enable_envs(envs_id, "enable")
         return result
+
+    def enable_envs(self, envs_id, enable=None):
+        url = f"{self._envs_url}/{enable}"
+        new_envs = json.dumps(
+            [
+                envs_id
+            ]
+        )
+        self.request_result("PUT", url, self._headers, new_envs)
 
     def delete_envs(self, envs_id, msg):
         url = f"{self._envs_url}"
@@ -124,16 +124,12 @@ class QLService:
         )
         return self.request_result("DELETE", url, self._headers, new_envs, msg)
 
+    def get_logs(self, path=""):
+        # test = "2023-09-18-08-28-00.log?path=6dylan6_jdpro_jd_bean_change_1983&t=1695022122383"
+        url = f"{self._logs_url}/{path}"
+        result = self.request_result("GET", url, self._headers)["data"]
+        return result
+
 
     # def get_logs
 
-
-# if __name__ == '__main__':
-    # r = QLService(api_url="http://192.168.67.245:5700",
-    #               client_id="AUiUPsl-DAc3",
-    #               client_secret="WtqCtvm06Qudq7x-R7ETPtAJ")
-    # r.get_envs_list(86)
-    # r.add_envs(value="testPython222", name="testName222", remarks="testRemarks", msg="添加变量成功")
-    # r.update_envs(envs_id=79, value="testPython222", name="updateN", remarks="testRemarks", msg="更新变量成功")
-    # r.delete_envs(envs_id=81, msg="删除变量成功")
-    # r.get_envs_list()

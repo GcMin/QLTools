@@ -18,8 +18,8 @@ class DBService:
     def init_talbes(self):
         sql = "create table if not exists ql_envs" \
               "(id      int primary key," \
-              "pin      text unique," \
-              "name     text," \
+              "envs_type    text," \
+              "pt_pin      text," \
               "value    text," \
               "remarks  text," \
               "timestamp    text," \
@@ -33,8 +33,20 @@ class DBService:
         self._cur.execute(sql)
         self._conn.commit()
 
-    def select_envs_by_pin(self, pin):
-        sql = f"select * from ql_envs where pin='{pin}'"
+    def select_info_by_qq(self, qq):
+        sql = f"select pt_pin from ql_envs where qq_num='{qq}'"
+        try:
+            result = self._cur.execute(sql).fetchone()
+            if result is None:
+                return False
+            else:
+                return result[0]
+        except Exception as e:
+            self._logger.info(f"{str(e)}")
+            self._logger.error(e)
+
+    def select_envs_by_pin(self, pin, envs_type):
+        sql = f"select * from ql_envs where pt_pin='{pin}' and envs_type='{envs_type}'"
         try:
             result = self._cur.execute(sql).fetchone()
             if result is None:
@@ -45,13 +57,14 @@ class DBService:
             self._logger.info(f"{str(e)}")
             self._logger.error(e)
 
-    def update_ql_envs(self, data, qq_num="", wx_num=""):
+    def update_ql_envs(self, data, envs_type, qq_num="", wx_num=""):
         value = data['value']
-        user_name = self.retrieve_pin(value)
+
+        user_id = self.retrieve_pin(value)
         sql = "update ql_envs " \
               f"set id={data['id']}," \
-              f"pin='{data['name']}_{user_name}'," \
-              f"name='{data['name']}'," \
+              f"envs_type='{envs_type}'," \
+              f"pt_pin='{user_id}'," \
               f"value='{data['value']}'," \
               f"remarks='{data['remarks']}'," \
               f"timestamp='{data['timestamp']}'," \
@@ -65,7 +78,7 @@ class DBService:
         try:
             self._logger.info(sql)
             self._cur.execute(sql)
-            self._logger.info(f"更新账号:{user_name}成功")
+            self._logger.info(f"更新账号:{user_id}成功")
         except Exception as e:
             self._logger.info(f"{str(e)}")
             self._logger.error(e)
@@ -78,21 +91,21 @@ class DBService:
             if envs_type != 'JD_COOKIE' and envs_type != 'JD_WSCK':
                 continue
             value = i['value']
-            user_name = self.retrieve_pin(value)
+            user_id = self.retrieve_pin(value)
             sql = "insert or ignore into ql_envs " \
-                  f"values({i['id']},'{envs_type}_{user_name}','{i['name']}','{i['value']}','{i['remarks']}','{i['timestamp']}'," \
+                  f"values({i['id']},'{envs_type}','{user_id}','{i['value']}','{i['remarks']}','{i['timestamp']}'," \
                   f"{i['status']},{i['position']},'{i['createdAt']}','{i['updatedAt']}','{qq_num}','{wx_num}')"
             try:
                 self._logger.info(sql)
                 self._cur.execute(sql)
-                self._logger.info(f"添加账号:{user_name}成功")
+                self._logger.info(f"添加账号:{user_id}成功")
             except Exception as e:
                 self._logger.info(f"{str(e)}")
                 self._logger.error(e)
         self._conn.commit()
 
+
     def retrieve_pin(self, str):
-        user_id = None
         if str.__contains__("pt_pin=") and str.__contains__("pt_key="):
             pt_pin = re.findall(r"pt_pin=.*?;", str)[0]
             user_id = pt_pin[7:len(pt_pin) - 1]
@@ -100,8 +113,3 @@ class DBService:
             pt_pin = re.findall(r"pin=.*?;", str)[0]
             user_id = pt_pin[4:len(pt_pin) - 1]
         return user_id
-
-
-if __name__ == '__main__':
-    db = DBService()
-    db.select_ql_envs_by_pin()

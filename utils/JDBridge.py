@@ -1,89 +1,133 @@
 import logging
 import re
+import urllib.parse
+from operator import itemgetter
 
 import uvicorn
 
 from db.SQLite import DBService
+from test import timestamp
 from utils.QL import QLService
 from typing import Optional
 from fastapi import FastAPI, Depends, HTTPException, WebSocket, APIRouter
 from pydantic import BaseModel, Field
 
 
-class Cookie(BaseModel):
-    cookie: str = Field("")
-    qq: str = Field("")
-    wx: str = Field("")
+class JDService:
+    def __init__(self):
+        LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
+        logging.getLogger().setLevel(logging.INFO)
+        self.logger = logging.getLogger("JD_logger")
+        logging.basicConfig(format=LOG_FORMAT)
+
+        self.qlService = QLService()
+        self.db = DBService()
+        self.refresh_envs_list()
 
 
-LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
-logging.getLogger().setLevel(logging.INFO)
-logger = logging.getLogger("JD_logger")
-logging.basicConfig(format=LOG_FORMAT)
-
-qlService = QLService()
-db = DBService()
-
-
-def add_cookie(cookie_list, remarks="", qq="", wx=""):
-    envs_type = cookie_list[0]
-    pin = cookie_list[0] + "_" + cookie_list[1]
-    value = cookie_list[2]
-    #   检查cookie是否已经在数据库
-    cookie_in_envs = db.select_envs_by_pin(pin)
-    #   添加新cookie
-    if not cookie_in_envs:
-        result = qlService.add_envs(name=envs_type, value=value, remarks=remarks)
-        data = get_data(result)
-        db.insert_ql_envs(data, qq_num=qq, wx_num=wx)
-        return "cookie 添加成功"
-    #   更新cookie
-    else:
-        id = cookie_in_envs[0]
-        name = cookie_in_envs[2]
-        qq = cookie_in_envs[10]
-        wx = cookie_in_envs[11]
-        result = qlService.update_envs(envs_id=id, name=name, value=value, remarks=remarks)
-        if result is None:
-            return
-        data = get_data(result)
-        db.update_ql_envs(data, qq_num=qq, wx_num=wx)
-    return "cookie 更新成功"
-    # envs_id = data['id']
-    # envs_name = data['name']
-    # envs_value = data['value']
-    # envs_remarks = data['remarks']
-    # envs_status = data['status']
-    # envs_timestamp = data['timestamp']
-    # envs_position = data['position']
-    # envs_update_time = data['updatedAt']
-    # envs_create_time = data['createdAt']
+    def add_cookie(self, cookie_dict, remarks="", qq="", wx=""):
+        envs_type = cookie_dict["envs_type"]
+        pin = cookie_dict["user_id"]
+        cookie = cookie_dict["cookie"]
+        #   检查cookie是否已经在数据库
+        cookie_in_envs = self.db.select_envs_by_pin(pin, envs_type)
+        #   添加新cookie
+        if not cookie_in_envs:
+            result = self.qlService.add_envs(name=envs_type, value=cookie, remarks=remarks)
+            data = self.get_data(result)
+            if data is None:
+                return "cookie 完全相同，请重新获取cookie"
+            self.db.insert_ql_envs(data, qq_num=qq, wx_num=wx)
+            return "cookie 添加成功"
+        #   更新cookie
+        else:
+            envs_id = cookie_in_envs[0]
+            # envs_type = cookie_in_envs[1]
+            result = self.qlService.update_envs(envs_id=envs_id, envs_type=envs_type, value=cookie, remarks=remarks)
+            if result is None:
+                return
+            data = self.get_data(result)
+            # 更新数据库QQ,WX和JD绑定关系
+            self.db.update_ql_envs(data, envs_type=envs_type, qq_num=qq, wx_num=wx)
+        return "cookie 更新成功"
 
 
-def query_asset():
-    return None
+    def query_asset(self, qq="", wx=""):
+        log_path = self.get_newest_logs_name()
+        log = self.qlService.get_logs(log_path)
+        user_name = ""
+        if self.db.select_info_by_qq(qq):
+            user_name = urllib.parse.unquote(self.db.select_info_by_qq(qq))
+        asset = self.format_log_to_asset(logs=log, jd_name=user_name)
+        return asset
 
 
-def get_data(result):
-    if result['code'] == 200:
-        return result['data']
-    else:
-        logger.info("返回结果错误")
-        logger.error(result['message'])
+    def format_log_to_asset(self, logs, jd_name):
+        result = ""
+        logs = logs.split("\n")
+        while '' in logs:
+            logs.remove('')
+        flag = False
+        for i in logs:
+            if not i.__contains__("******") and not flag:
+                continue
+            elif not flag:
+                # 匹配是否对应账号
+                _jd_name = re.findall(r"】(\w+)", i)[0]
+                if _jd_name == jd_name:
+                    flag = True
+                else:
+                    flag = False
+                continue
+            # 截取完毕
+            elif i.__contains__("******") and flag:
+                break
+            elif i.__contains__("开始发送通知"):
+                break
+            result = result + i + "\n"
+        if len(result) == 0:
+            result = f"找不到账号{jd_name}, 请重新添加cookie绑定"
+        return result
 
 
-def list_envs():
-    result = qlService.get_envs_list()
-    data = get_data(result)
-    return data
+    def get_newest_logs_name(self):
+        full_logs = self.qlService.get_logs()
+        # 筛选出对应的log的文件夹
+        log_time = 0
+        new_log = dict()
+        for i in full_logs:
+            if i["title"].__contains__("jd_bean_change") and i["mtime"] > log_time:
+                log_time = i["mtime"]
+                new_log = i["children"]
+        if new_log is not None:
+            log = sorted(new_log, key=itemgetter("mtime"), reverse=True)[0]
+            result = log["title"] + "?path=" + log["parent"] + "&t=" + str(timestamp)
+        else:
+            result = ""
+        return result
 
 
-def refresh_envs_list():
-    data = list_envs()
-    logger.info("刷新 JD Cookie变量")
-    db.insert_ql_envs(data)
+    def get_data(self, result):
+        if result['code'] == 200:
+            return result['data']
+        else:
+            self.logger.info("返回结果错误")
+            self.logger.error(result['message'])
+            return None
 
-refresh_envs_list()
+
+    def list_envs(self):
+        result = self.qlService.get_envs_list()
+        data = self.get_data(result)
+        return data
+
+
+    def refresh_envs_list(self):
+        data = self.list_envs()
+        self.logger.info("刷新 JD Cookie变量")
+        self.db.insert_ql_envs(data)
+
+
 
 
 # def check_cookie(cookie_value):
@@ -110,8 +154,3 @@ refresh_envs_list()
 #     r.append(value)
 #     return r
 
-
-if __name__ == '__main__':
-    # pt_key=app_openAAJlAFfjU1kofX83SxRirnw862FS56GOlKWMmX1sPZkNdwRt3STA;pt_pin=test1;
-    # pin=WSCKtest;wskey = AAJlAFxjAECa9Zig26MmdrX7Fafkqy2WEHYDBys9yaf4pPQgPMqf1ysEHKaLdUiXrT - cGQUfCRGK3xP3m3LfEZ7ne2YPn1JA;
-    uvicorn.run('JDBridge:app', host='0.0.0.0', port=8000, reload=True)

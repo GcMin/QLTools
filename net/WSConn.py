@@ -21,6 +21,8 @@ async def websocket_endpoint(websocket: WebSocket):
         if "post_type" in data.keys() and data["post_type"] == "message":
             result = main_filter(data)
             await websocket.send_json(result)
+        elif "meta_event_type" in data.keys() and data["meta_event_type"] == "heartbeat":
+            continue
         else:
             test(data)
 
