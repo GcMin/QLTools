@@ -3,14 +3,9 @@ import re
 import urllib.parse
 from operator import itemgetter
 
-import uvicorn
-
 from db.SQLite import DBService
 from test import timestamp
 from utils.QL import QLService
-from typing import Optional
-from fastapi import FastAPI, Depends, HTTPException, WebSocket, APIRouter
-from pydantic import BaseModel, Field
 
 
 class JDService:
@@ -52,6 +47,7 @@ class JDService:
 
     def query_asset(self, qq="", wx=""):
         user_name = ""
+        asset = "查询异常"
         if self.db.select_info_by_qq(qq):
             # 查看cookie状态
             result_list = self.db.select_info_by_qq(qq)
@@ -62,8 +58,7 @@ class JDService:
             user_name = urllib.parse.unquote(result_list[1])
             log_path = self.get_newest_logs_name()
             log = self.qlService.get_logs(log_path)
-
-        asset = self.format_log_to_asset(logs=log, jd_name=user_name)
+            asset = self.format_log_to_asset(logs=log, jd_name=user_name)
         return asset
 
     def format_log_to_asset(self, logs, jd_name):
