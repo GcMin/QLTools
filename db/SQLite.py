@@ -34,13 +34,13 @@ class DBService:
         self._conn.commit()
 
     def select_info_by_qq(self, qq):
-        sql = f"select pt_pin from ql_envs where qq_num='{qq}'"
+        sql = f"select id,pt_pin from ql_envs where qq_num='{qq}'"
         try:
             result = self._cur.execute(sql).fetchone()
             if result is None:
                 return False
             else:
-                return result[0]
+                return result
         except Exception as e:
             self._logger.info(f"{str(e)}")
             self._logger.error(e)

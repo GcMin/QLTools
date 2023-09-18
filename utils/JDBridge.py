@@ -24,7 +24,6 @@ class JDService:
         self.db = DBService()
         self.refresh_envs_list()
 
-
     def add_cookie(self, cookie_dict, remarks="", qq="", wx=""):
         envs_type = cookie_dict["envs_type"]
         pin = cookie_dict["user_id"]
@@ -51,16 +50,21 @@ class JDService:
             self.db.update_ql_envs(data, envs_type=envs_type, qq_num=qq, wx_num=wx)
         return "cookie 更新成功"
 
-
     def query_asset(self, qq="", wx=""):
-        log_path = self.get_newest_logs_name()
-        log = self.qlService.get_logs(log_path)
         user_name = ""
         if self.db.select_info_by_qq(qq):
-            user_name = urllib.parse.unquote(self.db.select_info_by_qq(qq))
+            # 查看cookie状态
+            result_list = self.db.select_info_by_qq(qq)
+            id = result_list[0]
+            cookie_status = self.get_data(self.qlService.get_envs_list(id))["status"]
+            if cookie_status != 0:
+                return "cookie 已失效"
+            user_name = urllib.parse.unquote(result_list[1])
+            log_path = self.get_newest_logs_name()
+            log = self.qlService.get_logs(log_path)
+
         asset = self.format_log_to_asset(logs=log, jd_name=user_name)
         return asset
-
 
     def format_log_to_asset(self, logs, jd_name):
         result = ""
@@ -89,7 +93,6 @@ class JDService:
             result = f"找不到账号{jd_name}, 请重新添加cookie绑定"
         return result
 
-
     def get_newest_logs_name(self):
         full_logs = self.qlService.get_logs()
         # 筛选出对应的log的文件夹
@@ -106,7 +109,6 @@ class JDService:
             result = ""
         return result
 
-
     def get_data(self, result):
         if result['code'] == 200:
             return result['data']
@@ -115,20 +117,15 @@ class JDService:
             self.logger.error(result['message'])
             return None
 
-
     def list_envs(self):
         result = self.qlService.get_envs_list()
         data = self.get_data(result)
         return data
 
-
     def refresh_envs_list(self):
         data = self.list_envs()
         self.logger.info("刷新 JD Cookie变量")
         self.db.insert_ql_envs(data)
-
-
-
 
 # def check_cookie(cookie_value):
 #     if cookie_value[-1] != ";":
@@ -153,4 +150,3 @@ class JDService:
 #     r.append(user_id)
 #     r.append(value)
 #     return r
-
