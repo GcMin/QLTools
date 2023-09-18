@@ -13,6 +13,8 @@ logging.basicConfig(format=LOG_FORMAT)
 
 
 def main_filter(msg_dict):
+
+    return_msg = ""
     msg = msg_dict["message"]
     msg_type = msg_dict["message_type"]
     if msg_type == "private":
@@ -34,9 +36,10 @@ def main_filter(msg_dict):
             msg.__contains__("pin=") and msg.__contains__("wskey=")):
         return_msg = cookie_filter(msg, user_id)
 
-    # return result_json(status="failed", retcode=1400, data=None, echo=echo)
-    result = result_json(action=action, msg_type=msg_type, msg_id=msg_id, msg=return_msg, echo="")
-    return result
+    if len(return_msg) != 0:
+        result = result_json(action=action, msg_type=msg_type, msg_id=msg_id, msg=return_msg, echo="")
+        return result
+    return None
 
 
 def query_filter(user_id):
