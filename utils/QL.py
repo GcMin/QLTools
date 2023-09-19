@@ -131,5 +131,3 @@ class QLService:
         return result
 
 
-    # def get_logs
-

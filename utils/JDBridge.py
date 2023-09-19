@@ -45,16 +45,40 @@ class JDService:
                 msg_list.append("cookie 更新成功")
         return msg_list
 
+    def check_cookie_status(self, envs_id=""):
+        msg_list = list()
+        envs_result = self.get_data(self.qlService.get_envs_list(envs_id=envs_id))
+        if not isinstance(envs_id, int) and len(envs_id) == 0:
+            update_list = list()
+            for i in envs_result:
+                envs_type = i["name"]
+                if envs_type != "JD_COOKIE" or envs_type != "JD_WSCK":
+                    continue
+                status = i["status"]
+                # cookie状态禁用
+                if status != 0:
+                    update_list.append(i["id1"])
+                for j in update_list:
+                    self.db.update_status(j, 1)
+        else:
+            status = envs_result["status"]
+            if status != 0:
+                self.db.update_status(envs_id, 1)
+                return False
+            else:
+                return True
+
+
+
     def query_asset(self, qq="", wx=""):
         msg_list = list()
         if self.db.select_info_by_qq(qq):
             # 查看cookie状态
-            result_list = self.db.select_info_by_qq(qq)
-            # print(type(result_list))
-            for i in result_list:
-                user_id = i[0]
-                cookie_status = self.get_data(self.qlService.get_envs_list(user_id))["status"]
-                if cookie_status != 0:
+            qq_bind_list = self.db.select_info_by_qq(qq)
+            for i in qq_bind_list:
+                envs_id = i[0]
+                cookie_status = self.check_cookie_status(envs_id=envs_id)
+                if not cookie_status:
                     continue
                     # return "cookie 已失效"
                 user_name = urllib.parse.unquote(i[1])
@@ -127,26 +151,6 @@ class JDService:
         self.logger.info("刷新 JD Cookie变量")
         self.db.insert_ql_envs(data)
 
-# def check_cookie(cookie_value):
-#     if cookie_value[-1] != ";":
-#         cookie_value = cookie_value + ";"
-#     if cookie_value.__contains__("pt_pin=") and cookie_value.__contains__("pt_key="):
-#         pt_pin = re.findall(r"pt_pin=.*?;", cookie_value)[0]
-#         user_id = pt_pin[7:len(pt_pin) - 1]
-#         envs_type = "JD_COOKIE"
-#     elif cookie_value.__contains__("pin=") and cookie_value.__contains__("wskey="):
-#         pt_pin = re.findall(r"pin=.*?;", cookie_value)[0]
-#         user_id = pt_pin[4:len(pt_pin) - 1]
-#         envs_type = "JD_WSCK"
-#     else:
-#         logger.info("输入cookie错误, 请重新输入")
-#         return None
-#     return extract_cookie(envs_type, user_id, cookie_value)
-#
-#
-# def extract_cookie(envs_type, user_id, value):
-#     r = list()
-#     r.append(envs_type)
-#     r.append(user_id)
-#     r.append(value)
-#     return r
+if __name__ == "__main__":
+    jd = JDService()
+    jd.check_cookie_status(103)

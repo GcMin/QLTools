@@ -57,6 +57,12 @@ class DBService:
             self._logger.info(f"{str(e)}")
             self._logger.error(e)
 
+    def update_status(self, id, status):
+        sql = "update ql_envs " \
+              f"set status={status}" \
+              f"where id={id}"
+        self.execute_sql(sql)
+
     def update_ql_envs(self, data, envs_type, qq_num="", wx_num=""):
         value = data['value']
 
@@ -75,14 +81,7 @@ class DBService:
               f"qq_num='{qq_num}'," \
               f"wx_num='{wx_num}' " \
               f"where id = {data['id']}"
-        try:
-            self._logger.info(sql)
-            self._cur.execute(sql)
-            self._logger.info(f"更新账号:{user_id}成功")
-        except Exception as e:
-            self._logger.info(f"{str(e)}")
-            self._logger.error(e)
-        self._conn.commit()
+        self.execute_sql(sql, f"更新账号:{user_id}成功")
 
     def insert_ql_envs(self, data, qq_num="", wx_num=""):
         for i in data:
@@ -95,17 +94,10 @@ class DBService:
             sql = "insert or ignore into ql_envs " \
                   f"values({i['id']},'{envs_type}','{user_id}','{i['value']}','{i['remarks']}','{i['timestamp']}'," \
                   f"{i['status']},{i['position']},'{i['createdAt']}','{i['updatedAt']}','{qq_num}','{wx_num}')"
-            try:
-                self._logger.info(sql)
-                self._cur.execute(sql)
-                self._logger.info(f"添加账号:{user_id}成功")
-            except Exception as e:
-                self._logger.info(f"{str(e)}")
-                self._logger.error(e)
-        self._conn.commit()
-
+            self.execute_sql(sql, f"添加账号:{user_id}成功")
 
     def retrieve_pin(self, str):
+        user_id = ""
         if str.__contains__("pt_pin=") and str.__contains__("pt_key="):
             pt_pin = re.findall(r"pt_pin=.*?;", str)[0]
             user_id = pt_pin[7:len(pt_pin) - 1]
@@ -113,3 +105,13 @@ class DBService:
             pt_pin = re.findall(r"pin=.*?;", str)[0]
             user_id = pt_pin[4:len(pt_pin) - 1]
         return user_id
+
+    def execute_sql(self, sql, msg=""):
+        try:
+            self._logger.info(sql)
+            self._cur.execute(sql)
+            self._logger.info(msg)
+        except Exception as e:
+            self._logger.info(f"{str(e)}")
+            self._logger.error(e)
+        self._conn.commit()
