@@ -23,6 +23,7 @@ class JDService:
         envs_type = cookie_dict["envs_type"]
         pin = cookie_dict["user_id"]
         cookie = cookie_dict["cookie"]
+        msg_list = list()
         #   检查cookie是否已经在数据库
         cookie_in_envs = self.db.select_envs_by_pin(pin, envs_type)
         #   添加新cookie
@@ -30,36 +31,40 @@ class JDService:
             result = self.qlService.add_envs(name=envs_type, value=cookie, remarks=remarks)
             data = self.get_data(result)
             if data is None:
-                return "cookie 完全相同，请重新获取cookie"
+                msg_list.append("cookie 完全相同，请重新获取cookie")
             self.db.insert_ql_envs(data, qq_num=qq, wx_num=wx)
-            return "cookie 添加成功"
+            msg_list.append("cookie 添加成功")
         #   更新cookie
         else:
             envs_id = cookie_in_envs[0]
-            # envs_type = cookie_in_envs[1]
             result = self.qlService.update_envs(envs_id=envs_id, envs_type=envs_type, value=cookie, remarks=remarks)
-            if result is None:
-                return
-            data = self.get_data(result)
-            # 更新数据库QQ,WX和JD绑定关系
-            self.db.update_ql_envs(data, envs_type=envs_type, qq_num=qq, wx_num=wx)
-        return "cookie 更新成功"
+            if result is not None:
+                data = self.get_data(result)
+                # 更新数据库QQ,WX和JD绑定关系
+                self.db.update_ql_envs(data, envs_type=envs_type, qq_num=qq, wx_num=wx)
+                msg_list.append("cookie 更新成功")
+        return msg_list
 
     def query_asset(self, qq="", wx=""):
-        user_name = ""
-        asset = "查询异常"
+        msg_list = list()
         if self.db.select_info_by_qq(qq):
             # 查看cookie状态
             result_list = self.db.select_info_by_qq(qq)
-            id = result_list[0]
-            cookie_status = self.get_data(self.qlService.get_envs_list(id))["status"]
-            if cookie_status != 0:
-                return "cookie 已失效"
-            user_name = urllib.parse.unquote(result_list[1])
-            log_path = self.get_newest_logs_name()
-            log = self.qlService.get_logs(log_path)
-            asset = self.format_log_to_asset(logs=log, jd_name=user_name)
-        return asset
+            # print(type(result_list))
+            for i in result_list:
+                user_id = i[0]
+                cookie_status = self.get_data(self.qlService.get_envs_list(user_id))["status"]
+                if cookie_status != 0:
+                    continue
+                    # return "cookie 已失效"
+                user_name = urllib.parse.unquote(i[1])
+                log_path = self.get_newest_logs_name()
+                asset_log = self.qlService.get_logs(log_path)
+                asset = self.format_log_to_asset(logs=asset_log, jd_name=user_name)
+                msg_list.append(asset)
+        if len(msg_list) == 0:
+            msg_list.append("查询异常")
+        return msg_list
 
     def format_log_to_asset(self, logs, jd_name):
         result = ""

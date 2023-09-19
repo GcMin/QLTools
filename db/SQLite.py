@@ -36,7 +36,7 @@ class DBService:
     def select_info_by_qq(self, qq):
         sql = f"select id,pt_pin from ql_envs where qq_num='{qq}'"
         try:
-            result = self._cur.execute(sql).fetchone()
+            result = self._cur.execute(sql).fetchall()
             if result is None:
                 return False
             else:

@@ -1,3 +1,5 @@
 *.properties
 /resources/*.db
 test.*
+.idea
+__pycache__

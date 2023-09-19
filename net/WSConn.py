@@ -20,10 +20,11 @@ async def websocket_endpoint(websocket: WebSocket):
         data = await websocket.receive_json()
         if "post_type" in data.keys() and data["post_type"] == "message":
             result = main_filter(data)
-            if result is not None:
-                await websocket.send_json(result)
-            else:
-                continue
+            for msg in result:
+                if msg is not None:
+                    await websocket.send_json(msg)
+                else:
+                    continue
         elif "meta_event_type" in data.keys() and data["meta_event_type"] == "heartbeat":
             continue
         else:

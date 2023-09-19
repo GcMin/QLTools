@@ -14,7 +14,11 @@ logging.basicConfig(format=LOG_FORMAT)
 
 def main_filter(msg_dict):
 
-    return_msg = ""
+    return_list = list()
+    msg_list = list()
+    user_id = ""
+    action = ""
+    msg_id = ""
     msg = msg_dict["message"]
     msg_type = msg_dict["message_type"]
     if msg_type == "private":
@@ -31,14 +35,15 @@ def main_filter(msg_dict):
         msg_type = "group_id"
 
     if msg == "查询":
-        return_msg = query_filter(user_id)
+        msg_list = query_filter(user_id)
     elif (msg.__contains__("pt_pin=") and msg.__contains__("pt_key=")) or (
             msg.__contains__("pin=") and msg.__contains__("wskey=")):
-        return_msg = cookie_filter(msg, user_id)
+        msg_list = cookie_filter(msg, user_id)
 
-    if len(return_msg) != 0:
-        result = result_json(action=action, msg_type=msg_type, msg_id=msg_id, msg=return_msg, echo="")
-        return result
+    if msg_list or len(msg_list) != 0:
+        for i in msg_list:
+            return_list.append(result_json(action=action, msg_type=msg_type, msg_id=msg_id, msg=i, echo=""))
+        return return_list
     return None
 
 
@@ -81,6 +86,5 @@ def result_json(action, msg_type, msg_id, msg, echo):
             "message": msg
         }
     }
-    # result = json.dumps(js)
     logger.info(result)
     return result
